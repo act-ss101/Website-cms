@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, Wallet, Trophy, Bell, User, ChefHat, ShoppingBag, Users, Settings, ChevronRight, TrendingUp, TrendingDown, MapPin, Star, Plus, MessageCircle, ArrowRight, LogOut, CreditCard, FileText, Cloud, CloudRain, Sun } from 'lucide-react';
+import { Calendar, Clock, Wallet, Trophy, Bell, User, ChefHat, ShoppingBag, Users, Settings, ChevronRight, TrendingUp, TrendingDown, MapPin, Star, Plus, MessageCircle, ArrowRight, LogOut, CreditCard, FileText, Cloud, CloudRain, Sun, Loader2, CheckCircle } from 'lucide-react';
 import { memberData } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { getMemberBookings, getAvailableSlots, createBooking, cancelBooking, Booking } from '../services/bookingService';
 
 type MemberPage = 'dashboard' | 'booking' | 'scores' | 'wallet' | 'dining' | 'community' | 'profile';
 
@@ -190,23 +192,50 @@ function DashboardPage() {
 
 // ─── BOOKING PAGE ───────────────────────────────────────────────────────────────
 function BookingPage() {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState('2026-02-15');
-  const availableSlots = [
-    { time: '06:00', status: 'available', price: 3500 },
-    { time: '06:12', status: 'available', price: 3500 },
-    { time: '06:30', status: 'booked', price: 3500 },
-    { time: '07:00', status: 'available', price: 3500 },
-    { time: '07:15', status: 'limited', price: 3500 },
-    { time: '07:30', status: 'available', price: 3500 },
-    { time: '08:00', status: 'available', price: 3500 },
-    { time: '08:30', status: 'booked', price: 3500 },
-    { time: '09:00', status: 'available', price: 3200 },
-    { time: '10:00', status: 'available', price: 3200 },
-    { time: '11:00', status: 'available', price: 3200 },
-    { time: '13:00', status: 'available', price: 2800 },
-    { time: '14:00', status: 'available', price: 2800 },
-    { time: '15:00', status: 'available', price: 2800 },
-  ];
+  const [slots, setSlots] = useState<{ time: string; available: boolean; price: number }[]>([]);
+  const [myBookings, setMyBookings] = useState<Booking[]>([]);
+  const [booking, setBooking] = useState(false);
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    loadSlots();
+    if (user) loadBookings();
+  }, [selectedDate, user]);
+
+  const loadSlots = async () => {
+    const available = await getAvailableSlots(selectedDate);
+    setSlots(available);
+  };
+
+  const loadBookings = async () => {
+    if (!user) return;
+    const bookings = await getMemberBookings(user.id);
+    setMyBookings(bookings);
+  };
+
+  const handleBook = async (time: string) => {
+    if (!user) return;
+    setBooking(true);
+    try {
+      await createBooking({ memberId: user.id, date: selectedDate, time, holes: 18, guests: [] });
+      setSuccess(`Booked ${time} successfully!`);
+      await loadSlots();
+      await loadBookings();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setBooking(false);
+    }
+  };
+
+  const handleCancel = async (bookingId: string) => {
+    if (!user) return;
+    await cancelBooking(bookingId, user.id);
+    await loadBookings();
+  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -241,23 +270,47 @@ function BookingPage() {
         </div>
       </div>
 
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700 text-sm">
+          <CheckCircle size={16} /> {success}
+        </div>
+      )}
+
+      {/* My Bookings */}
+      {myBookings.length > 0 && (
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-cream-dark/50 mb-6">
+          <h3 className="font-semibold text-forest mb-4">My Bookings</h3>
+          <div className="space-y-2">
+            {myBookings.filter(b => b.status === 'confirmed').slice(0, 3).map(b => (
+              <div key={b.id} className="flex items-center justify-between p-3 bg-cream/50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-charcoal">{b.date} at {b.time}</p>
+                  <p className="text-xs text-warm-gray">{b.holes} holes · ฿{b.price.toLocaleString()}</p>
+                </div>
+                <button onClick={() => handleCancel(b.id)} className="text-xs text-red-500 hover:underline">Cancel</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Time Slots */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-cream-dark/50">
         <h3 className="font-semibold text-forest mb-4">Available Slots</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          {availableSlots.map((slot, i) => (
+          {slots.map((slot, i) => (
             <button
               key={i}
-              disabled={slot.status === 'booked'}
+              disabled={!slot.available || booking}
+              onClick={() => handleBook(slot.time)}
               className={`p-3 rounded-xl text-center transition-all ${
-                slot.status === 'available' ? 'bg-green-50 hover:bg-green-100 text-green-800 border border-green-200' :
-                slot.status === 'limited' ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200' :
+                slot.available ? 'bg-green-50 hover:bg-green-100 text-green-800 border border-green-200 cursor-pointer' :
                 'bg-gray-50 text-gray-400 cursor-not-allowed border border-gray-100'
               }`}
             >
               <div className="font-bold">{slot.time}</div>
               <div className="text-xs mt-1">฿{slot.price.toLocaleString()}</div>
-              <div className="text-[10px] mt-0.5 capitalize">{slot.status}</div>
+              <div className="text-[10px] mt-0.5">{slot.available ? 'Available' : 'Booked'}</div>
             </button>
           ))}
         </div>

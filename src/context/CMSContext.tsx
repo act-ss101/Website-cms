@@ -1,4 +1,9 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+/**
+ * CMS Context — Connects to IndexedDB for persistence
+ * Supports: content editing, theming, layout, news, version history
+ */
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { getDB, generateId } from '../db/database';
 
 export interface CMSContent {
   heroTitle: string;
@@ -35,6 +40,13 @@ export interface CMSLayout {
   footerStyle: 'full' | 'compact' | 'minimal';
 }
 
+export interface CMSVersion {
+  id: string;
+  snapshot: any;
+  note: string;
+  createdAt: string;
+}
+
 interface CMSContextType {
   content: CMSContent;
   setContent: (content: CMSContent) => void;
@@ -45,6 +57,10 @@ interface CMSContextType {
   themes: CMSTheme[];
   isCMSEnabled: boolean;
   setIsCMSEnabled: (v: boolean) => void;
+  versions: CMSVersion[];
+  saveVersion: (note: string) => Promise<void>;
+  rollbackToVersion: (versionId: string) => Promise<void>;
+  loadFromDB: () => Promise<void>;
 }
 
 const defaultContent: CMSContent = {
@@ -83,14 +99,90 @@ const defaultLayout: CMSLayout = {
 
 const CMSContext = createContext<CMSContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'kk_cms_state';
+
 export function CMSProvider({ children }: { children: ReactNode }) {
-  const [content, setContent] = useState<CMSContent>(defaultContent);
-  const [theme, setTheme] = useState<CMSTheme>(themes[0]);
-  const [layout, setLayout] = useState<CMSLayout>(defaultLayout);
+  const [content, setContentState] = useState<CMSContent>(defaultContent);
+  const [theme, setThemeState] = useState<CMSTheme>(themes[0]);
+  const [layout, setLayoutState] = useState<CMSLayout>(defaultLayout);
   const [isCMSEnabled, setIsCMSEnabled] = useState(false);
+  const [versions, setVersions] = useState<CMSVersion[]>([]);
+
+  // Load from IndexedDB on mount
+  const loadFromDB = useCallback(async () => {
+    try {
+      const db = await getDB();
+      const settings = await db.get('settings', 'cms_state');
+      if (settings?.value) {
+        const state = settings.value;
+        if (state.content) setContentState(state.content);
+        if (state.theme) setThemeState(state.theme);
+        if (state.layout) setLayoutState(state.layout);
+      }
+      const versionsData = await db.get('settings', 'cms_versions');
+      if (versionsData?.value) setVersions(versionsData.value);
+    } catch (e) {
+      console.error('CMS load error:', e);
+    }
+  }, []);
+
+  useEffect(() => { loadFromDB(); }, [loadFromDB]);
+
+  // Persist to IndexedDB
+  const persist = useCallback(async (c: CMSContent, t: CMSTheme, l: CMSLayout) => {
+    try {
+      const db = await getDB();
+      await db.put('settings', { key: 'cms_state', value: { content: c, theme: t, layout: l }, updatedAt: new Date().toISOString() });
+    } catch (e) {
+      console.error('CMS persist error:', e);
+    }
+  }, []);
+
+  const setContent = useCallback((c: CMSContent) => {
+    setContentState(c);
+    persist(c, theme, layout);
+  }, [theme, layout, persist]);
+
+  const setTheme = useCallback((t: CMSTheme) => {
+    setThemeState(t);
+    persist(content, t, layout);
+  }, [content, layout, persist]);
+
+  const setLayout = useCallback((l: CMSLayout) => {
+    setLayoutState(l);
+    persist(content, theme, l);
+  }, [content, theme, persist]);
+
+  const saveVersion = useCallback(async (note: string) => {
+    const version: CMSVersion = {
+      id: generateId(),
+      snapshot: { content, theme, layout },
+      note,
+      createdAt: new Date().toISOString(),
+    };
+    const newVersions = [version, ...versions].slice(0, 50); // Keep last 50
+    setVersions(newVersions);
+    try {
+      const db = await getDB();
+      await db.put('settings', { key: 'cms_versions', value: newVersions, updatedAt: new Date().toISOString() });
+    } catch (e) {
+      console.error('Version save error:', e);
+    }
+  }, [content, theme, layout, versions]);
+
+  const rollbackToVersion = useCallback(async (versionId: string) => {
+    const version = versions.find(v => v.id === versionId);
+    if (!version) return;
+    const snapshot = version.snapshot;
+    if (snapshot.content) setContentState(snapshot.content);
+    if (snapshot.theme) setThemeState(snapshot.theme);
+    if (snapshot.layout) setLayoutState(snapshot.layout);
+    await persist(snapshot.content || content, snapshot.theme || theme, snapshot.layout || layout);
+    await saveVersion(`Rollback to: ${version.note}`);
+  }, [versions, content, theme, layout, persist, saveVersion]);
 
   return (
-    <CMSContext.Provider value={{ content, setContent, theme, setTheme, layout, setLayout, themes, isCMSEnabled, setIsCMSEnabled }}>
+    <CMSContext.Provider value={{ content, setContent, theme, setTheme, layout, setLayout, themes, isCMSEnabled, setIsCMSEnabled, versions, saveVersion, rollbackToVersion, loadFromDB }}>
       {children}
     </CMSContext.Provider>
   );
