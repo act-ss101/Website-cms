@@ -1,1 +1,113 @@
 @import "tailwindcss";
+
+@theme {
+  --color-forest: #1B3A2F;
+  --color-forest-light: #2D5A47;
+  --color-cream: #F5F0E8;
+  --color-cream-dark: #E8E0D4;
+  --color-gold: #C9A227;
+  --color-gold-light: #D4B44A;
+  --color-charcoal: #2C2C2C;
+  --color-warm-gray: #6B6560;
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-charcoal);
+  background-color: var(--color-cream);
+  overflow-x: hidden;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-forest-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-forest);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.gold-shimmer {
+  background: linear-gradient(90deg, var(--color-gold) 0%, var(--color-gold-light) 50%, var(--color-gold) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* CMS Theme Variables */
+:root {
+  --cms-primary: #1B3A2F;
+  --cms-secondary: #C9A227;
+  --cms-bg: #F5F0E8;
+  --cms-text: #2C2C2C;
+  --cms-radius: 8px;
+  --cms-spacing: 1;
+}
+
+[data-theme="dark"] {
+  --cms-primary: #0D1F18;
+  --cms-secondary: #D4B44A;
+  --cms-bg: #1A1A1A;
+  --cms-text: #E8E0D4;
+}
+
+[data-theme="midnight"] {
+  --cms-primary: #0F172A;
+  --cms-secondary: #F59E0B;
+  --cms-bg: #1E293B;
+  --cms-text: #F1F5F9;
+}
+
+[data-theme="royal"] {
+  --cms-primary: #4A1D6A;
+  --cms-secondary: #E8B84B;
+  --cms-bg: #FAF5FF;
+  --cms-text: #2D1B4E;
+}
