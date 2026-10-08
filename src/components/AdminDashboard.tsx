@@ -3,8 +3,9 @@ import { motion } from 'framer-motion';
 import { BarChart3, Users, Calendar, DollarSign, Settings, Bell, Search, Filter, ChevronDown, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock, UserCheck, MapPin, Edit, Trash2, Plus, Eye, Download, Send, RefreshCw, LogOut, Activity, PieChart, Layers, Star } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart as RechartsPie, Pie, Cell } from 'recharts';
 import { adminData } from '../data/mockData';
+import { CMSPageManager } from './CMSPageManager';
 
-type AdminPage = 'overview' | 'teesheet' | 'members' | 'caddies' | 'analytics' | 'communications' | 'settings';
+type AdminPage = 'overview' | 'teesheet' | 'members' | 'caddies' | 'analytics' | 'communications' | 'cms' | 'settings';
 
 export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [page, setPage] = useState<AdminPage>('overview');
@@ -16,6 +17,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     { id: 'caddies', label: 'Caddies', icon: <UserCheck size={20} /> },
     { id: 'analytics', label: 'Analytics', icon: <PieChart size={20} /> },
     { id: 'communications', label: 'Comms', icon: <Send size={20} /> },
+    { id: 'cms', label: 'CMS', icon: <Layers size={20} /> },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 
@@ -86,6 +88,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           {page === 'caddies' && <CaddiesPage />}
           {page === 'analytics' && <AnalyticsPage />}
           {page === 'communications' && <CommunicationsPage />}
+          {page === 'cms' && <CMSPageManager />}
           {page === 'settings' && <SettingsPage />}
         </div>
       </main>
